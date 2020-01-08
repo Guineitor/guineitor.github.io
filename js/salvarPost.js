@@ -1,0 +1,3 @@
+$("#salvar-post").click(function(){
+   
+});
