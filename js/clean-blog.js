@@ -1,5 +1,8 @@
 (function($) {
-  "use strict"; // Start of use strict
+  
+  
+  var postId = getPostId(window.location.search)
+  console.log(postId);
 
   // Floating label headings for the contact form
   $("body").on("input propertychange", ".floating-label-form-group", function(e) {
@@ -38,35 +41,117 @@
       });
   }
 
-  if(window.indexedDB){
-    console.log('init indexdb');
+  if(window.indexedDB) {
     var db = null;
-		var contador = 0;
     var objBanco = window.indexedDB.open("blog", 1);
+    objBanco.onsuccess = function(evento){
+      console.log("Conexão realizada com sucesso!");
+      db = evento.target.result;
 
-    objBanco.onsuccess = function(evento) {
-			console.log("Conexão realizada com sucesso!");
-			db = evento.target.result;
-			
-			//CONSULTA
-			var tx = db.transaction(["posts"], "readonly");
-			var despesaStore = tx.objectStore("posts");
-			
-      var request = despesaStore.openCursor();
-      request.onerror = function(evento){
-				console.log("Erro na consulta");
-      }
-      
-      request.onsuccess = function(evento){
-        var cursor = evento.target.result;
-				if(cursor){
-          console.log('results');
-        } else {
-          console.log('not results');
-        }
-      }
+       //CONSULTA
+       var tx = db.transaction(["posts"], "readwrite");
+       var posts = tx.objectStore("posts");
+       
+       var request = posts.openCursor();
+       request.onerror = function(evento){
+           console.log("Erro na consulta");
+       }
+       
+       //Caso a requisição deu certo!
+       request.onsuccess = function(evento){
+           var cursor = evento.target.result;
+           if(cursor){
+               
+               var post = cursor.value;
+               console.log(post);
 
+               var html  = '<div class="post-preview">'
+               +'<a href="index.html?post='+post.codigo+'">'
+               +'  <h2 class="post-title">'
+               +post.title
+               +'</h2>'
+               +' <h3 class="post-subtitle">'
+               +post.subtitle
+               +' </h3>'
+               +'</a>'
+               +'<p class="post-meta">Posted by'
+               +'  <a href="#">'+post.postedBy+'</a>'
+               +'  on '+post.postedAt+'</p>'
+               +'</div>'
+               +' <hr>'
+
+              $(".feeds").append(html);
+
+               cursor.continue();
+           }
+       }
     }
+    
+    objBanco.onerror = function(evento){
+      console.log("Erro na conexão com banco de dados", evento);
+    }
+    
+    objBanco.onupgradeneeded = function(evento){
+      db = evento.target.result;
+      var obj = db.createObjectStore("posts", 
+      { keyPath: "codigo", autoIncrement: true });
+        } 
+  } else {
+    console.log("Banco de dados IndexedDB não suportado");
   }
+
+
+  
+
+  
+
+
+    $("#novo-post").click(function(){
+      $(".feed").hide();
+      $(".post").hide();
+      $(".postar").show();
+    });
+
+    $("#salvar-post").click(function(){
+        
+      var title = $("#title").val();
+      var subtitle = $("#subtitle").val();
+      var text = $("#text").val();
+      var postedAt = new moment().format('MMMM Do YYYY, h:mm:ss a');
+      var postedBy = getCookieUserNameGoogle();
+
+      //JSON
+      var post = {
+          title: title,
+          subtitle: subtitle,
+          text: text,
+          postedAt: postedAt,
+          postedBy: postedBy    
+      };
+      console.log(post);
+      
+      var tx = db.transaction(["posts"], "readwrite");
+      var despesaStore = tx.objectStore("posts");
+      despesaStore.put(post);
+            
+
+      window.location = "index.html";
+
+      
+    });
+
+
+      $(".feed").show();
+      $(".post").hide();
+      $(".postar").hide();
+
+
+  function getPostId(value) {
+    return value.split("=")[1];
+  }
+      
+  function getCookieUserNameGoogle() {
+    return "Você";
+}
 
 })(jQuery); // End of use strict
