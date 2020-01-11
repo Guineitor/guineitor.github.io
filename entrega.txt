@@ -1,0 +1,5 @@
+github url: https://github.com/guineitor/guineitor.github.io
+
+
+micro blog com a criacao, visualizacao e exclusao de posts. 
+indexDB;
