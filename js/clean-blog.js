@@ -1,7 +1,72 @@
-(function($) {
+if(window.indexedDB) {
+  var db = null;
+  var objBanco = window.indexedDB.open("blog", 1);
+  objBanco.onsuccess = function(evento){
+    console.log("Conexão realizada com sucesso!");
+    db = evento.target.result;
+
+     //CONSULTA
+     var tx = db.transaction(["posts"], "readwrite");
+     var posts = tx.objectStore("posts");
+     
+     var request = posts.openCursor();
+     request.onerror = function(evento){
+         console.log("Erro na consulta");
+     }
+     
+     //Caso a requisição deu certo!
+     request.onsuccess = function(evento){
+
+         var cursor = evento.target.result;
+         if(cursor){
+             
+             var post = cursor.value;
+
+             var html  = '<div class="post-preview">'
+             +'<a href="index.html?post='+post.codigo+'">'
+             +'  <h2 class="post-title">'
+             +post.title
+             +'</h2>'
+             +' <h3 class="post-subtitle">'
+             +post.subtitle
+             +' </h3>'
+             +'</a>'
+             +'<p class="post-meta">Posted by'
+             +'  <a href="#">'+post.postedBy+'</a>'
+             +'  on '+post.postedAt+'</p>'
+             +'<img src="img/reddumpster.jpg" width="30" height="30" class="lixeira" value="'+post.codigo+'" />'
+             +'</div>'
+             +' <hr>'
+
+            $(".feeds").append(html);
+            //postList.push(post);
+
+            cursor.continue();
+         }   
+     }
+  }
+
+  $("#deletar").click(function(){
+    alert(this);
+ });
   
+  objBanco.onerror = function(evento){
+    console.log("Erro na conexão com banco de dados", evento);
+  }
   
-  var postId = getPostId(window.location.search)
+  objBanco.onupgradeneeded = function(evento){
+    db = evento.target.result;
+    var obj = db.createObjectStore("posts", 
+    { keyPath: "codigo", autoIncrement: true });
+      } 
+} else {
+  console.log("Banco de dados IndexedDB não suportado");
+}
+
+$( document ).ready(function() {
+  
+  var postId = getPostId(window.location.search);
+  var postList = [];
   console.log(postId);
 
   // Floating label headings for the contact form
@@ -41,70 +106,7 @@
       });
   }
 
-  if(window.indexedDB) {
-    var db = null;
-    var objBanco = window.indexedDB.open("blog", 1);
-    objBanco.onsuccess = function(evento){
-      console.log("Conexão realizada com sucesso!");
-      db = evento.target.result;
-
-       //CONSULTA
-       var tx = db.transaction(["posts"], "readwrite");
-       var posts = tx.objectStore("posts");
-       
-       var request = posts.openCursor();
-       request.onerror = function(evento){
-           console.log("Erro na consulta");
-       }
-       
-       //Caso a requisição deu certo!
-       request.onsuccess = function(evento){
-           var cursor = evento.target.result;
-           if(cursor){
-               
-               var post = cursor.value;
-               console.log(post);
-
-               var html  = '<div class="post-preview">'
-               +'<a href="index.html?post='+post.codigo+'">'
-               +'  <h2 class="post-title">'
-               +post.title
-               +'</h2>'
-               +' <h3 class="post-subtitle">'
-               +post.subtitle
-               +' </h3>'
-               +'</a>'
-               +'<p class="post-meta">Posted by'
-               +'  <a href="#">'+post.postedBy+'</a>'
-               +'  on '+post.postedAt+'</p>'
-               +'</div>'
-               +' <hr>'
-
-              $(".feeds").append(html);
-
-               cursor.continue();
-           }
-       }
-    }
-    
-    objBanco.onerror = function(evento){
-      console.log("Erro na conexão com banco de dados", evento);
-    }
-    
-    objBanco.onupgradeneeded = function(evento){
-      db = evento.target.result;
-      var obj = db.createObjectStore("posts", 
-      { keyPath: "codigo", autoIncrement: true });
-        } 
-  } else {
-    console.log("Banco de dados IndexedDB não suportado");
-  }
-
-
   
-
-  
-
 
     $("#novo-post").click(function(){
       $(".feed").hide();
@@ -131,20 +133,60 @@
       console.log(post);
       
       var tx = db.transaction(["posts"], "readwrite");
-      var despesaStore = tx.objectStore("posts");
-      despesaStore.put(post);
+      var postsStore = tx.objectStore("posts");
+      postsStore.put(post);
             
-
-      window.location = "index.html";
-
-      
+      window.location = "index.html";      
     });
 
+    if ($.isNumeric(postId)){
+      $(".feed").hide();
+      $(".post").show();
+      $(".postar").hide();
 
+      $(".spansubheading").hide();
+      $(".meta").show();
+      var tx = db.transaction(["posts"], "readwrite");
+      var postsStore = tx.objectStore("posts");
+      var objConsulta = postsStore.get(parseInt(postId));
+      objConsulta.onsuccess = function() {
+        var registro = objConsulta.result;
+        console.log(registro);
+        $("#header-subtitle").show();
+        $("#header-title").html(registro.title);
+        $("#header-subtitle").html(registro.subtitle);
+        $("#postedBy").html(registro.postedBy);
+        $("#postedAt").html(registro.postedAt);
+        $("#article").html(registro.text);
+ 
+      }
+      
+      // img/redpandalookingdown.jpg'
+    
+
+    } else {
+      $(".spansubheading").show();
+      $(".meta").hide();
+      $("#header-subtitle").hide();
       $(".feed").show();
       $(".post").hide();
       $(".postar").hide();
+      $(".lixeira").click(function(){
+          var codigo = parseInt($(this).attr("value"));
+          console.log(codigo);
+          //console.log(codigo);
+          var tx = db.transaction(["posts"], "readwrite");
+          var postsStore = tx.objectStore("posts");
 
+          var r= prompt("digite 'sim' para excluir o post? ")
+          if(r === "sim") {
+            postsStore.delete(codigo);
+            location.reload();
+          }
+
+      });
+    }
+      
 
   function getPostId(value) {
     return value.split("=")[1];
@@ -154,4 +196,5 @@
     return "Você";
 }
 
-})(jQuery); // End of use strict
+  console.log( "ready!" );
+});
